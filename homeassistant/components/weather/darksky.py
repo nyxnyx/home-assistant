@@ -19,7 +19,7 @@ from homeassistant.const import (
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 
-REQUIREMENTS = ['python-forecastio==1.3.5']
+REQUIREMENTS = ['python-forecastio==1.4.0']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ ATTR_DAILY_FORECAST_SUMMARY = 'daily_forecast_summary'
 ATTR_HOURLY_FORECAST_SUMMARY = 'hourly_forecast_summary'
 
 CONF_UNITS = 'units'
+CONF_LANG = 'lang'
 
 DEFAULT_NAME = 'Dark Sky'
 
@@ -37,6 +38,11 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_LATITUDE): cv.latitude,
     vol.Optional(CONF_LONGITUDE): cv.longitude,
     vol.Optional(CONF_UNITS): vol.In(['auto', 'si', 'us', 'ca', 'uk', 'uk2']),
+    vol.Optional(CONF_LANG): vol.In(['ar', 'az', 'be', 'bg', 'bs', 'ca', 'cs',
+        'da', 'de', 'el', 'en', 'es', 'et', 'fi', 'fr', 'he', 'hr', 'hu', 'id',
+        'is', 'it', 'ja', 'ka', 'ko', 'kw', 'lv', 'nb', 'nl', 'no', 'pl', 'pt',
+        'ro', 'ru', 'sk', 'sl', 'sr', 'sv', 'tet', 'tr', 'uk', 'x-pig-latin',
+        'zh', 'zh-tw']),
     vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
 })
 
@@ -53,8 +59,12 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     if not units:
         units = 'si' if hass.config.units.is_metric else 'us'
 
+    lang = config.get(CONF_LANG)
+    if not lang:
+        lang = 'en'
+
     dark_sky = DarkSkyData(
-        config.get(CONF_API_KEY), latitude, longitude, units)
+        config.get(CONF_API_KEY), latitude, longitude, units, lang)
 
     add_devices([DarkSkyWeather(name, dark_sky)], True)
 
@@ -154,12 +164,13 @@ class DarkSkyWeather(WeatherEntity):
 class DarkSkyData(object):
     """Get the latest data from Dark Sky."""
 
-    def __init__(self, api_key, latitude, longitude, units):
+    def __init__(self, api_key, latitude, longitude, units, lang):
         """Initialize the data object."""
         self._api_key = api_key
         self.latitude = latitude
         self.longitude = longitude
         self.requested_units = units
+        self.lang = lang
 
         self.data = None
         self.currently = None
@@ -174,7 +185,7 @@ class DarkSkyData(object):
         try:
             self.data = forecastio.load_forecast(
                 self._api_key, self.latitude, self.longitude,
-                units=self.requested_units)
+                units=self.requested_units, lang=self.lang)
             self.currently = self.data.currently()
             self.hourly = self.data.hourly()
             self.daily = self.data.daily()
